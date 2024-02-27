@@ -9,15 +9,14 @@ extern "C" {
 
 #define FX_INLINE inline
 
-typedef unsigned long size_t;
 typedef char bool_t;
 
 typedef struct time_fx{
-    long tv_sec
-    long int tv_nsec
+    long tv_sec;
+    long tv_nsec;
 }time_fx;
 
-typedef size_t (*len_func)(void* data);
+typedef size_fx (*len_func)(void* data);
 typedef void* (*copy_func)(void* data);
 typedef int (*cmp_func)(const void *key1, const void *key2);
 typedef void (*now_func)(time_fx*);
@@ -37,27 +36,31 @@ FX_INLINE void swap_ptr_fx(void* a, void* b){
     b = tmp;
 }
 
-FX_INLINE void memcopy_fx(void *src, const void *dest, size_t size){
+FX_INLINE void memcopy_fx(void *src, const void *dest, size_fx size){
     char *csrc = (char *)src;  
     char *cdest = (char *)dest;  
   
-    for (size_t i = 0; i < size; i++)
+    for (size_fx i = 0; i < size; i++)
         cdest[i] = csrc[i];
 }
 
-FX_INLINE void memcopy_zer_src_fx(void *src, const void *dest, size_t size){
+FX_INLINE void memcopy_zer_src_fx(void *src, const void *dest, size_fx size){
     char *csrc = (char *)src;  
     char *cdest = (char *)dest;  
   
-    for (size_t i = 0; i < size; i++)
+    for (size_fx i = 0; i < size; i++){
         cdest[i] = csrc[i];
         csrc[i] = 0;
+    }
+
 }
 
-FX_INLINE void zero_mem_fx(void *mem, size_t size){
-  
-    for (size_t i = 0; i < size; i++)
-        mem[i] = 0;
+FX_INLINE void zero_mem_fx(void *mem, size_fx size){
+    
+    char *mem_c = (char *)mem;  
+    
+    for (size_fx i = 0; i < size; i++)
+        mem_c[i] = 0;
 }
 
 #define NS_PER_SECOND 1000000000

@@ -16,11 +16,11 @@ struct flexcache{
 
 };
 
-void fcache_init(flexcache* cache, enum EVICTION_POLICY evic_pol, data_aux_funcs_t funcs, size_t maxmemory){
+void fcache_init(flexcache* cache, enum EVICTION_POLICY evic_pol, data_aux_funcs_t funcs, size_fx maxmemory){
     
 }
 
-static void fcache_clear_removed_list_call_cb(dllist_fx* removed_list, free* cb_free){
+static void fcache_clear_removed_list_call_cb(dllist_fx* removed_list, free_fx* cb_free){
     
     flexnode* iter = dllist_iter(list);
 
@@ -52,11 +52,11 @@ static void fcache_clear_removed_list_to_stack(dllist_fx* removed_list, stack_fx
 
 }
 
-static FX_INLINE size_t fcache_volatile_memory(flexcache *cache){
+static FX_INLINE size_fx fcache_volatile_memory(flexcache *cache){
     return cache->config.volatile_memory;
 }
 
-static FX_INLINE size_t fcache_volatile_frequency(flexcache *cache){
+static FX_INLINE size_fx fcache_volatile_frequency(flexcache *cache){
     return cache->config.volatile_memory;
 }
 
@@ -66,7 +66,7 @@ static FX_INLINE time_fx fcache_last_check(flexcache *cache){
 
 static FX_INLINE bool_t fcache_is_check_time(time_fx now){
 
-        size_t freq = fcache_volatile_frequency(cache);
+        size_fx freq = fcache_volatile_frequency(cache);
         time_fx lst_check = fcache_last_check(cache);
         time_fx due_time;
 
@@ -87,8 +87,8 @@ static void fcache_check_evict(flexcache *cache, const flexnode* node, dllist_fx
         dllist_concat(removed_list, new_removed);
     }
 
-    size_t len = fnode_get_size(node);
-    size_t available = fcache_available_volatile_memory(cache);
+    size_fx len = fnode_get_size(node);
+    size_fx available = fcache_available_volatile_memory(cache);
     if(len > available){
         dllist_fx* new_removed = dllist_scan_clean_until(list, len - available);
         dllist_concat(removed_list, new_removed);
@@ -103,10 +103,10 @@ static dllist_fx* set_internal(flexcache *cache, void* key, const void* value, s
     len_func* length = cache->config.funcs.len_func;
     //CALCULAR O TTL
     //O NODE TEM QUE TER O END TIME APENAS
-    // size_t EX = options->EX;
+    // size_fx EX = options->EX;
 
-    size_t data_size = (*length)(value);
-    size_t vol_memory = fcache_volatile_memory(cache);
+    size_fx data_size = (*length)(value);
+    size_fx vol_memory = fcache_volatile_memory(cache);
 
     dllist_fx removed_list;
     flexnode* existing_node = map_get(map, key);
@@ -119,12 +119,12 @@ static dllist_fx* set_internal(flexcache *cache, void* key, const void* value, s
         if(options->NX)
             return 0;
         
-        size_t old_size = fnode_get_size(existing_node);
+        size_fx old_size = fnode_get_size(existing_node);
         if(data_size > old_size + vol_memory)
             return 0;
 
         if(options->KEEPTTL)
-            size_t TTL = fnode_get_ttl(existing_node);
+            size_fx TTL = fnode_get_ttl(existing_node);
             //SETAR OPTIONS EXAT e PXAT
 
         
@@ -162,7 +162,7 @@ FX_INLINE stack_fx* fcache_set(flexcache *cache, void* key, const void* value, s
     return removed;
 }
 
-void fcache_set_free(flexcache *cache, void* key, const void* value, set_option* options, free* cb_free){
+void fcache_set_free(flexcache *cache, void* key, const void* value, set_option* options, free_fx* cb_free){
 
     dllist_fx* removed_list = fcache_set_internal(cache, key, value, options);
     fcache_clear_removed_list_call_cb(removed_list, cb_free);
@@ -210,7 +210,7 @@ static flexnode* fcache_remove_internal(flexcache *cache, void* key){
     dllist_remove(list, node);
 
     void* data = fnode_get_data(node);
-    size_t len = (*length)(data);
+    size_fx len = (*length)(data);
 
     if(fnode_is_volatile(node)){
         cache->config.volatilememory -= len;
@@ -229,7 +229,7 @@ void* fcache_remove(flexcache *cache, void* key){
     void* data = fnode_get_data(node);
 
     // fnode_destroy(node, allocator);
-    allocator->free(node);
+    allocator->free_fx(node);
 
     return data;
 }   

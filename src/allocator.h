@@ -1,13 +1,12 @@
 
-// tem que usar allocator no node create e destroy e no vector
-
+typedef unsigned long size_fx;
 
 typedef struct allocator_fx allocator_fx;
 
-typedef void (*free) (void*);
-typedef void *(*alloc)  (size_t size);
+typedef void (*free_fx) (void*);
+typedef void *(*alloc_fx)  (size_fx size);
 
 struct allocator_fx{
-    alloc* alloc;
-    free* free;
+    alloc_fx* alloc;
+    free_fx* free;
 };

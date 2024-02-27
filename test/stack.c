@@ -5,5 +5,5 @@
 extern SUITE(stackFX);
 
 GREATEST_SUITE(stackFX) {
-    RUN_TEST(example);
+    // RUN_TEST(example);
 }

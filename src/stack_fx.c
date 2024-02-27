@@ -3,11 +3,11 @@
 #define DEFAULT_CAPACITY 8
 #define DEFAULT_EXPANSION_FACTOR 2
 
-#define CC_MAX_ELEMENTS ((size_t) - 2)
+#define CC_MAX_ELEMENTS ((size_fx) - 2)
 
 struct stack_fx{
-    size_t          size;
-    size_t          capacity;
+    size_fx          size;
+    size_fx          capacity;
     void**          buffer;
     allocator_fx   allocator;
 };
@@ -29,7 +29,7 @@ static int expand_capacity(stack_fx* stck){
     if (stck->capacity == CC_MAX_ELEMENTS)
         return 0;
 
-    size_t new_capacity = (size_t)(stck->capacity * DEFAULT_EXPANSION_FACTOR);
+    size_fx new_capacity = (size_fx)(stck->capacity * DEFAULT_EXPANSION_FACTOR);
 
     if (new_capacity <= stck->capacity)
         new_capacity = CC_MAX_ELEMENTS;
@@ -38,7 +38,7 @@ static int expand_capacity(stack_fx* stck){
     if (!new_buff)
         return 0;
 
-    memcpy_fx(new_buff, stck->buffer, stck->size * sizeof(void*));
+    memcopy_fx(new_buff, stck->buffer, stck->size * sizeof(void*));
     // memcopy_zer_src_fx(new_buff, stck->buffer, stck->size * sizeof(void*)); //need zero old buffer ??
 
     (*stck->allocator.free)(stck->buffer);
