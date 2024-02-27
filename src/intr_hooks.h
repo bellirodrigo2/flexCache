@@ -5,16 +5,15 @@
 extern "C" {
 #endif
 
-typedef struct map_hook_t {
+#include "lib/rbtree.h"
+#include "lib/list.h"
 
-} map_hook_t;
+typedef RBTreeNode map_hook_t;
 
-typedef struct list_hook_t {
-
-} list_hook_t;
+typedef ListNode list_hook_t;
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif // !1
+#endif 

@@ -1,0 +1,15 @@
+- REMOVER A DEPENDENCIAS DO CC_COMMON DO CC_ARRAY... MANTER APENAS AS ENUM´s DE CODIGO DE RETORNO
+
+- REMOVER AS DEPENDENCIAS DOS INTRUSIVE DATA STRUCTURES (stddef and assert)
+
+-quebrar fcache_config em duas partes... uma para inicialização ()
+
+
+
+************************** ISSO EH MUITO IMPORTANT ****************
+- NO LIB/LIST
+PASSAR DEFINICOES DE struct "List" e "struct ListNode" para o arquivo .c, para nao aparecer ao client
+- FAZER O MESMO PARA RBTree, RBTreeNode, RBTreeNodeColor no lib/RBTREE
+- FAZER O MESMO PARA CC_ARRAY.... USA MUITO MEMMOVE
+
+= COLOCAR CHECK SE CACHE EH NULL EM TODAS AS FUNCOES... TAMBEM KEY, VALUE, ETC

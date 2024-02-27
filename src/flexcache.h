@@ -5,48 +5,49 @@
 extern "C" {
 #endif
 
-#include "fcache_config.h"
-#include "codes_flags.h"
-
-#include "eviction_list.h" //LRU, LFU. etc...
-#include "intr_map.h" //wrapper for intrusive RBtrees
+#include "com_types.h"
+#include "stack_fx.h" 
 
 typedef struct flexcache flexcache;
 
+enum EVICTION_POLICY{
+    LRU,
+    LFU,
+    FIFO,
+    TTL, 
+    RANDOM
+};
+
 typedef struct set_option {
 
-    size_t          exp_seconds;
-    bool_t          overwrite;
-    bool_t          isvolatile;
-    
-    //REDIS OPTIONS FOR SET
-    // EX seconds -- Set the specified expire time, in seconds (a positive integer).
-    // PX milliseconds -- Set the specified expire time, in milliseconds (a positive integer).
-    // EXAT timestamp-seconds -- Set the specified Unix time at which the key will expire, in seconds (a positive integer).
-    // PXAT timestamp-milliseconds -- Set the specified Unix time at which the key will expire, in milliseconds (a positive integer).
-    // NX -- Only set the key if it does not already exist.
-    // XX -- Only set the key if it already exists.
-    // KEEPTTL -- Retain the time to live associated with the key.
-    // GET -- Return the old string stored at key, or nil if key did not exist. An error is returned and SET aborted if the value stored at key is not a string.
+    bool_t        KEEPTTL; // KEEPTTL -- Retain the time to live associated with the key.
+    long          EXAT; //timestamp-seconds -- Set the specified Unix time at which the key will expire, in seconds (a positive integer).
+    long          PXAT; //timestamp-milliseconds -- Set the specified Unix time at which the key will expire, in milliseconds (a positive integer).
+
+    long          EX; //seconds -- Set the specified expire time, in seconds (a positive integer).
+    long          PX; //milliseconds -- Set the specified expire time, in milliseconds (a positive integer).
+
+    bool_t        NX; // NX -- Only set the key if it does not already exist.
+    bool_t        XX; // XX -- Only set the key if it already exists.
+
 
 } set_option;
 
-typedef struct vector_t vector_t;
+void fcache_init(flexcache* cache, enum EVICTION_POLICY evic_pol, data_aux_funcs_t funcs, size_t maxmemory);
 
-void fcache_init(flexcache* cache, eviction_list_t* evlist, map_t* map, fcache_config *config);
+void fcache_set_free(flexcache *cache, void* key, const void* value, set_option* options, free* cb_free);
 
-//SE RETORNAR NULL, FOI ADICIONADO... SE RETORNAR O PROPRIO 'value', deu algum problema
-// SE RETORNAR UM PTR DIFERENTE, FOI OVERWRITE, E VC DEVE HANDLE O DADO ANTIGO E ATEH FREE ELE
-//FAZER UM WRAPPER, QUE JA DELETA O NODE....PARA ISSO PRECISA PASSAR UM FREE_FUNC
-vector_t* fcache_set(flexcache *cache, KEY_TYPE key, const DATA_TYPE* value, set_option* options);
+stack_fx* fcache_set(flexcache *cache, void* key, const void* value, set_option* options);
 
-bool_t fcache_key_exists(flexcache *cache, KEY_TYPE key);
+bool_t fcache_key_exists(flexcache *cache, void* key);
 
-DATA_TYPE* fcache_get(flexcache *cache, KEY_TYPE key);
+const void* fcache_get_ptr(flexcache *cache, void* key);
 
-DATA_TYPE* fcache_delete(flexcache *cache, KEY_TYPE key);
+void* fcache_get_copy(flexcache *cache, void* key);
 
-bool_t fcache_check_evict(flexcache *cache, const DATA_TYPE* value);
+void* fcache_find_any(flexcache *cache, pred* pred, void* aux_data);
+
+stack_fx* fcache_find_all(flexcache *cache, void* key, pred* pred, void* aux_data);
 
 #ifdef __cplusplus
 }

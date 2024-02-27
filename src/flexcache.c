@@ -1,195 +1,235 @@
 #include "flexcache.h"
 #include "flexnode.h"
 #include "allocator.h"
+#include "fcache_config.h"
+#include "wrap_dllist.h" //wrapper for intrusive double linked list
+#include "wrap_map.h" //wrapper for intrusive RBtrees
 
+
+//fazer duas lists.... uma volatile e outra allkeys
+//allkeys eh FIFO,...touch faz nada
 struct flexcache{
-    eviction_list_t    evic_list;
-    map_t              kv_map;
-    fcache_config      config;
+    dllist_fx       evic_list;
+    dllist_touch*   touch;
+    map_fx          kv_map;
+    fcache_config   config;
 
 };
 
-
-void fcache_init(flexcache* cache, eviction_list_t* evlist, map_t* map, fcache_config *config){
+void fcache_init(flexcache* cache, enum EVICTION_POLICY evic_pol, data_aux_funcs_t funcs, size_t maxmemory){
     
-    if(!cache, !evlist || !map || !config){
-        return 0;
-    }
-    
-    cache->evic_list = *evlist;
-    cache->kv_map = *map;
-    cache->config = *config;
 }
 
-struct set_return{
-    bool_t    predicate;
-    vector_t* removed;
-};
-
-// SE FOR POSSIVEL OVEWRITE, TEM QUE RETORNAR O DADO ANTIGO, OU ENTAO PASSAR UMA FUNCAO FREE
-// PASSAR FUNCAO FREE EH COMPLICADO, POIS TEREMOS QUE HANDLE FREE DO CLIENTE DATA
-vector_t* fcache_set(flexcache *cache, KEY_TYPE key, const DATA_TYPE* value, set_option* options){
-
-    //what if options is NULL...need a STD_OPTIONS on FCACHE_CONFIG... overwrite
-
-    vector_t* vec_removed = 0;
-
-    bool_t exists = fcache_key_exists(cache, key); // O(log(n))
-    if(exists){
-        if(!options->overwrite){
-            return vec_removed;
-            //nulo
-        } else {
-            DATA_TYPE* old_value = fcache_delete(cache, key);
-            vec_insert(vec_removed, old_value);
-            return vec_removed;
-            //old value
-        }
-    }
-
-    //tem que retornar um vector de pointer pros dados removidos ?
-    //como saber se go_ahead ou nao... retornar um struct ??? goahead and vec_removed
-    // ai a propria funcao tem que retornar
-    bool_t go_ahead = fcache_check_evict(cache, value); // worst O(n)
-    if(!go_ahead){
-        //retornar o old_value aqui ????????????????
-        //remover do vec_removed
-        //adicionar o new_value no vec_removed ??? nao faz sentido
-        return vec_removed;
-    }
-
-    allocator_t *allocator = allocator;
-    size_t exp_sec = options->exp_seconds;
-    size_t len = (*cache->config.len_func)(value);
+static void fcache_clear_removed_list_call_cb(dllist_fx* removed_list, free* cb_free){
     
-    flexnode *node = fnode_create(key, value, len, exp_sec, allocator);
-    if(!node){
+    flexnode* iter = dllist_iter(list);
 
-        //retornar o old_value aqui ????????????????
-        //remover do vec_removed
-        //ACHO QUE NAO TEM COMO, PQ TERIA QUE RODAR fnode_create do mesmo jeito
-        return vec_removed;
+    while(iter!= 0){
+        //- REMOVE-LOS DO MAP
+        // ATUALIZAR MEMORY SIZE DO CACHE
+        // E FREE OS NODES
+        //CALL CB ON DATA
+
+        iter = dllist_next(iter);
     }
+    dllist_free(removed_list);
 
-    //at this point, if key exists, overwrite it
-    map_t* map = &cache->kv_map;
-    map_set(map, key, node); //O(log(n))
-    if(false){ //pelo que vi nao tem pq dar errado aqui
-        fnode_destroy(node,allocator);
+}
 
-        //se ja checou em cima, nao tem como dar erro....
-        //se der erro pode seru um codigo, bad state talvez
-        // return RETURN_ERR_BAD_STATE;
-        return vec_removed;
+static void fcache_clear_removed_list_to_stack(dllist_fx* removed_list, stack_fx* vec_removed){
+    
+    flexnode* iter = dllist_iter(list);
+
+    while(iter!= 0){
+        //- REMOVE-LOS DO MAP
+        // ATUALIZAR MEMORY SIZE DO CACHE
+        // E FREE OS NODES
+        //ADDICIONAR AO STCK_REMOVED
+
+        iter = dllist_next(iter);
     }
+    dllist_free(removed_list);
+
+}
+
+static FX_INLINE size_t fcache_volatile_memory(flexcache *cache){
+    return cache->config.volatile_memory;
+}
+
+static FX_INLINE size_t fcache_volatile_frequency(flexcache *cache){
+    return cache->config.volatile_memory;
+}
+
+static FX_INLINE time_fx fcache_last_check(flexcache *cache){
+    return cache->config.volatile_memory;
+}
+
+static FX_INLINE bool_t fcache_is_check_time(time_fx now){
+
+        size_t freq = fcache_volatile_frequency(cache);
+        time_fx lst_check = fcache_last_check(cache);
+        time_fx due_time;
+
+        time_fx_add_seconds(lst_check, freq, &due_time);
+
+        return time_fx_is_later(now, due_time);
+}
+
+static void fcache_check_evict(flexcache *cache, const flexnode* node, dllist_fx* removed_list){
 
     eviction_list_t* list = &cache->evic_list;
-    return_code set_evic_list = eviclist_insert(list, node); //O(1)
-    if(false){ //pelo que vi nao tem pq dar errado aqui
-        //acho que nao tem oque dar errado aqui
 
-        map_t* map = &cache->kv_map;
-        map_delete(map, key);
-        fnode_destroy(node, allocator);
-        // quais erros podem acontecer aqui ???
-        //LRU eh somente insert um dllist - OK
-        //LFU idem
-        //TTL idem
-        //RANDOM eh add to vector... tem que alocar....pode dar problema...tem que fazer um alocator
-        // return set_evic_list;
-        return vec_removed;
+    time_fx now;
+    cache.funcs.now(&now);
+
+    if(fcache_is_check_time(now)){
+        dllist_fx* new_removed = dllist_full_scan_clean(list, now);
+        dllist_concat(removed_list, new_removed);
     }
+
+    size_t len = fnode_get_size(node);
+    size_t available = fcache_available_volatile_memory(cache);
+    if(len > available){
+        dllist_fx* new_removed = dllist_scan_clean_until(list, len - available);
+        dllist_concat(removed_list, new_removed);
+    }
+}
+
+static dllist_fx* set_internal(flexcache *cache, void* key, const void* value, set_option* options){
+    
+    map_fx* map = &cache->kv_map;  
+    eviction_list_t* list = &cache->evic_list;
+    allocator_fx* allocator = cache->config.funcs.allocator;
+    len_func* length = cache->config.funcs.len_func;
+    //CALCULAR O TTL
+    //O NODE TEM QUE TER O END TIME APENAS
+    // size_t EX = options->EX;
+
+    size_t data_size = (*length)(value);
+    size_t vol_memory = fcache_volatile_memory(cache);
+
+    dllist_fx removed_list;
+    flexnode* existing_node = map_get(map, key);
+    if(!existing_node){
+        if(options->XX)
+            return 0;
+        if(data_size > vol_memory)
+            return 0;
+    } else {
+        if(options->NX)
+            return 0;
+        
+        size_t old_size = fnode_get_size(existing_node);
+        if(data_size > old_size + vol_memory)
+            return 0;
+
+        if(options->KEEPTTL)
+            size_t TTL = fnode_get_ttl(existing_node);
+            //SETAR OPTIONS EXAT e PXAT
+
+        
+        flexnode* old_node = fcache_remove_internal(cache, key);
+        if(old_node)
+            dllist_insert(&removed_list, old_node);
+    }
+
+    flexnode *node;
+    fnode_init(node, key, value, data_size, options);
+    fcache_check_evict(cache, node, &removed_list); // worst O(n)
+
+    map_set(map, key, node); //O(log(n))
+    dllist_insert(list, node); //O(1)
 
     //update cache items and memory usage
-    if(options->isvolatile){
-        cache->config.volatileitems += 1;
-        cache->config.volatilememory += len;
-    } else{
-        cache->config.nonvolatileitems += 1;
-        cache->config.nonvolatilememory += len;
-    }
-
-    return vec_removed;
-}
-
-DATA_TYPE* fcache_get(flexcache *cache, KEY_TYPE key){
-
-    flexnode* node = map_get(&cache->kv_map, key);
-    if(!node){
-        //ver se ha algum erro importante aqui, ou somente retorna NULL
-        //tem que retornar uma copia do objeto aqui
-        return node;
-    }
-    evic_list_touch(cache->evic_list, key);
-
-    return (*cache->config.copy_func)(fnode_get_data(node));
-}
-
-bool_t fcache_check_evict(flexcache *cache, const DATA_TYPE* value){
-
-    //aqui, ver se ja esta na hr de fazer um scan completo...
-    //na funcao abaixo eviclist_iter_delete_if ....tem que dar um limite de len, uma funcao len
-
-    //a funcao tem que:
-        //iterar sobre os itens
-        //remover baseado no predicate -- ttl_vs_now...precisa de aux value: now()
-        //retornar valor removido ----
-        //checar se pode parar ou nao -- predicate valor removido acumulado vs len.... precisa de aux: len
-        //fazer duas funcoes
-            //uma generica ... eviclist_iter_delete_if(list, ttl_vs_now, now);
-            //outra mais especifica, usando o ttl vs now e checar se len foi atingido
-            //retorna valor removido acumulado
-
-    size_t len = (*cache->config.len_func)(value);
-
-    size_t now = now();
-    size_t freq = cache->config.volatile_check_frequency;
-    size_t lst_check = cache->config.last_full_volatile_check;
-    eviction_list_t* list = &cache->evic_list;
-
-    if(lst_check + freq > now){
-        eviclist_full_scan_clean(list); //precisa passar now ???
-    } else {
-        eviclist_scan_until_clean(list, len); //precisa passar now ???
-    }
-    //retornar um vector de pointer de data ?
-    //precisa tambem retornar se o len esta disponivel ou nao
-
-    
-}
-
-DATA_TYPE* fcache_delete(flexcache *cache, KEY_TYPE key){
-
-    if(!fcache_key_exists(cache, key)){
-        return 0;
-    }
-
-    //remove tem que retornar o node
-    eviction_list_t* list = &cache->evic_list;
-
-    flexnode* node = map_delete(&cache->kv_map, key);
-    if(!node){
-        return node;
-    }
-    eviclist_delete(list, node);
-
-    //falta checar se null antes de retornar
-    DATA_TYPE* data =  fnode_get_data(node);
-
-    //atualizar itens e len do cache
-    size_t len = (*cache->config.len_func)(data);
-
     if(fnode_is_volatile(node)){
-        cache->config.volatileitems -= 1;
-        cache->config.volatilememory -= len;
+        cache->config.volatilememory += data_size;
     } else{
-        cache->config.nonvolatileitems -= 1;
-        cache->config.nonvolatilememory -= len;
+        cache->config.nonvolatilememory += data_size;
     }
 
-    allocator_t *allocator = allocator;
-    fnode_destroy(node, allocator);
+    return &removed_list;
+}
 
+FX_INLINE stack_fx* fcache_set(flexcache *cache, void* key, const void* value, set_option* options){
+    
+    allocator_fx* allocator = cache->config.funcs.allocator;
+
+    dllist_fx* removed_list = fcache_set_internal(cache, key, value, options);
+    stack_fx* removed = 0;
+    stack_init(removed, allocator.alloc);
+    fcache_clear_removed_list_to_stack(removed_list, removed);
+
+    return removed;
+}
+
+void fcache_set_free(flexcache *cache, void* key, const void* value, set_option* options, free* cb_free){
+
+    dllist_fx* removed_list = fcache_set_internal(cache, key, value, options);
+    fcache_clear_removed_list_call_cb(removed_list, cb_free);
+
+}
+
+const void* fcache_get_ptr(flexcache *cache, void* key){
+
+    map_fx* map = &cache->kv_map;  
+    eviction_list_t* list = &cache->evic_list;
+
+    flexnode* node = map_get(map, key);
+    if(!node){
+        return node;
+    }
+
+    dllist_touch* touch = cache->touch;
+    touch(list, node);
+
+    const void* data = fnode_get_data(node);
     return data;
 }
 
+FX_INLINE void* fcache_get_copy(flexcache *cache, void* key){
+
+    void* data = fcache_get_ptr(cache, key);
+    const copy_func* copy = cache->config.funcs.copy_func;
+    return (*copy)(data);
+}
+
+static flexnode* fcache_remove_internal(flexcache *cache, void* key){
+    
+    if(!map_contains(cache, key)){
+        return 0;
+    }
+
+    eviction_list_t* list = &cache->evic_list;
+    allocator_fx *allocator = allocator;
+    const len_func* length = cache->config.funcs.len_func;
+
+    flexnode* node = map_remove(&cache->kv_map, key);
+    if(!node){
+        return node;
+    }
+    dllist_remove(list, node);
+
+    void* data = fnode_get_data(node);
+    size_t len = (*length)(data);
+
+    if(fnode_is_volatile(node)){
+        cache->config.volatilememory -= len;
+    } else{
+        cache->config.nonvolatilememory -= len;
+    }
+
+    return node;
+}
+
+void* fcache_remove(flexcache *cache, void* key){
+    
+    allocator_fx *allocator = allocator;
+
+    flexnode* node = fcache_remove_internal(cache, key);
+    void* data = fnode_get_data(node);
+
+    // fnode_destroy(node, allocator);
+    allocator->free(node);
+
+    return data;
+}   
