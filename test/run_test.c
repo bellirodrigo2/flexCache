@@ -1,6 +1,5 @@
 #include "greatest.h"
 
-
 /* Define a suite, compiled seperately. */
 SUITE_EXTERN(stackFX);
 

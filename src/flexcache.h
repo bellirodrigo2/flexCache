@@ -5,7 +5,7 @@
 extern "C" {
 #endif
 
-#include "com_types.h"
+#include "commons.h"
 #include "stack_fx.h" 
 
 typedef struct flexcache flexcache;

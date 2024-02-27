@@ -5,7 +5,7 @@
 extern "C" {
 #endif
 
-#include "com_types.h"
+#include "commons.h"
 #include "flexcache.h"
 
 typedef enum node_type node_type;

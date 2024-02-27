@@ -1,4 +1,5 @@
 #include "stack_fx.h"
+// #include "com_types.h"
 
 #define DEFAULT_CAPACITY 8
 #define DEFAULT_EXPANSION_FACTOR 2
@@ -13,7 +14,7 @@ struct stack_fx{
 };
 
 void stack_init(stack_fx* stck, allocator_fx* alloc){
-
+    
     stck = (*alloc->alloc)(sizeof(stack_fx));
     if (!stck)
         return;

@@ -6,7 +6,7 @@
 extern "C" {
 #endif
 
-#include "com_types.h"
+#include "commons.h"
 
 typedef struct stack_fx stack_fx;
 
